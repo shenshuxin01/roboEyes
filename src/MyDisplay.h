@@ -288,53 +288,106 @@ private:
                frameSize);
 
         const int pixelCount = w * h;
-        const int packedSize = (pixelCount + 7) / 8;
 
-        printf("\n\n======\nw:%d, h:%d, packedSize:%d",w,h,packedSize);
-
-        uint8_t* packed = new uint8_t[packedSize];
-        memset(packed, 0, packedSize);
+        uint8_t* rgb565 = new uint8_t[pixelCount * 2];
 
         for (int i = 0; i < pixelCount; i++) {
-            if (_buffer[i]) {
-                packed[i >> 3] |= (1 << (7 - (i & 7)));
-            }
+
+            uint16_t color = _buffer[i]
+                ? 0xFFFF   // 白色
+                : 0x0000;  // 黑色
+
+            rgb565[i * 2] = color >> 8;
+            rgb565[i * 2 + 1] = color & 0xFF;
         }
 
         const int MAX_PACKET_BYTES = 1440;
         const int bytesPerLine = w * 2;
         const int maxLines = MAX_PACKET_BYTES / bytesPerLine;
 
-        if (packedSize <= MAX_PACKET_BYTES) {
-
-            uint8_t packet[9 + packedSize];
-
-            packet[0] = 0x42;
-
-            packet[1] = x >> 8;
-            packet[2] = x & 0xFF;
-            packet[3] = y >> 8;
-            packet[4] = y & 0xFF;
-            packet[5] = w >> 8;
-            packet[6] = w & 0xFF;
-            packet[7] = h >> 8;
-            packet[8] = h & 0xFF;
-
-            memcpy(packet + 9, packed, packedSize);
-            printf("%d*%d,%lu\n",w,h,sizeof(packet));
-            sendto(_udpSock,
-                   packet,
-                   sizeof(packet),
-                   0,
-                   (sockaddr*)&_udpAddr,
-                   sizeof(_udpAddr));
-        } else {
-            // 位压缩后通常单包即可发送
-            // 如果未来尺寸增大，再重新设计按位拆包协议
-            printf("bit-packed frame too large\n");
+        if (maxLines <= 0) {
+            delete[] rgb565;
+            return;
         }
 
-        delete[] packed;
+        int currentLine = 0;
+
+        while (currentLine < h) {
+
+            const int sendLines =
+                std::min(maxLines,
+                         (int)h - currentLine);
+
+            const int payloadSize =
+                sendLines * bytesPerLine;
+
+            uint8_t* packet =
+                new uint8_t[8 + payloadSize];
+
+            const uint16_t packetY =
+                y + currentLine;
+
+            packet[0] = x >> 8;
+            packet[1] = x & 0xFF;
+            packet[2] = packetY >> 8;
+            packet[3] = packetY & 0xFF;
+            packet[4] = w >> 8;
+            packet[5] = w & 0xFF;
+            packet[6] = sendLines >> 8;
+            packet[7] = sendLines & 0xFF;
+
+            memcpy(
+                packet + 8,
+                rgb565 + currentLine * bytesPerLine,
+                payloadSize
+            );
+
+            sendto(
+                _udpSock,
+                packet,
+                8 + payloadSize,
+                0,
+                (sockaddr*)&_udpAddr,
+                sizeof(_udpAddr)
+            );
+            printf("w:%d, h:%d, packedSize:%d\n",w,h,payloadSize);
+            std::this_thread::sleep_for(std::chrono::milliseconds (1));
+
+            delete[] packet;
+
+            usleep(1000);
+
+            currentLine += sendLines;
+        }
+
+        delete[] rgb565;
+    }
+
+    uint8_t _drawColor = 1;
+
+public:
+    void setDrawColor(uint8_t color) {
+        _drawColor = color;
+    }
+
+    void clearBuffer() {
+        clearDisplay();
+    }
+
+    void sendBuffer() {
+        display();
+    }
+
+    void drawHLine(int x, int y, int w) {
+        drawHLine(x, y, w, _drawColor);
+    }
+
+    void drawBox(int x, int y, int w, int h) {
+        fillRect(x, y, w, h, _drawColor);
+    }
+
+    void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2) {
+        fillTriangle(x0, y0, x1, y1, x2, y2, _drawColor);
     }
 #endif
 };
