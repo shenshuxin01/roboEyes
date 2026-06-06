@@ -2269,7 +2269,7 @@ int main() {
             setEmotion(emotions[currentEmotion].name);
         }
 #endif
-//        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(100));
     }
     return 0;
 }

@@ -256,12 +256,23 @@ public:
 
                 for (int bit = 0; bit < 8; bit++)
                 {
+//                    int srcY = page * 8 + bit;
+//
+//                    if (_buffer[srcY * _width + col])
+//                    {
+//                        value |= (1 << bit);
+//                    }
+//旋转180度
                     int srcY = page * 8 + bit;
 
-                    if (_buffer[srcY * _width + col])
+                    int srcX = (_width - 1) - col;
+                    int rotatedY = (_height - 1) - srcY;
+
+                    if (_buffer[rotatedY * _width + srcX])
                     {
                         value |= (1 << bit);
                     }
+
                 }
 
                 packed[pageOffset + col] = value;
@@ -296,23 +307,23 @@ public:
                 packed.end()
         );
 
-        struct timeval tv;
-        gettimeofday(&tv, nullptr);
-
-        struct tm* tm_info = localtime(&tv.tv_sec);
-
-        int milliseconds = (int)(tv.tv_usec / 1000);
-
-        printf(
-                "\n[%02d:%02d:%02d.%03d] "
-                "UDP FullScreen "
-                "PacketSize:%zu",
-                tm_info->tm_hour,
-                tm_info->tm_min,
-                tm_info->tm_sec,
-                milliseconds,
-                packet.size()
-        );
+//        struct timeval tv;
+//        gettimeofday(&tv, nullptr);
+//
+//        struct tm* tm_info = localtime(&tv.tv_sec);
+//
+//        int milliseconds = (int)(tv.tv_usec / 1000);
+//
+//        printf(
+//                "\n[%02d:%02d:%02d.%03d] "
+//                "UDP FullScreen "
+//                "PacketSize:%zu",
+//                tm_info->tm_hour,
+//                tm_info->tm_min,
+//                tm_info->tm_sec,
+//                milliseconds,
+//                packet.size()
+//        );
 
         sendto(
                 _udpSock,
