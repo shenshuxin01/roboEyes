@@ -1,4 +1,5 @@
 
+
 // -----------------------------------------------------------------------------
 // OLED Emotive Eyes - Desktop version
 // -----------------------------------------------------------------------------
@@ -39,11 +40,31 @@ int32_t max(int32_t a, int32_t b) {
 
 
 // --------------------------- User config ---------------------------
-static const uint16_t EYES_FRAME_MS = 900; // ~30 FPS
+static const uint16_t EYES_FRAME_MS = 30; // ~30 FPS
+static const uint16_t SCREEN_WIDTH = 128; // 屏幕宽度
+static const uint16_t SCREEN_HEIGHT = 64; // 屏幕高度
 
 #include "MyDisplay.h"
 // OLED driver (hardware I2C)
-MyDisplay u8g2(240, 120);
+MyDisplay u8g2(SCREEN_WIDTH, SCREEN_HEIGHT);
+
+static float gScreenScaleX = 1.0f;
+static float gScreenScaleY = 1.0f;
+
+static inline void calculateScreenScale(uint16_t width, uint16_t height) {
+    const uint16_t BASE_WIDTH = 240;
+    const uint16_t BASE_HEIGHT = 120;
+    gScreenScaleX = static_cast<float>(width) / BASE_WIDTH;
+    gScreenScaleY = static_cast<float>(height) / BASE_HEIGHT;
+}
+
+static inline int16_t scaleByWidth(int16_t value) {
+    return static_cast<int16_t>(value * gScreenScaleX);
+}
+
+static inline int16_t scaleByHeight(int16_t value) {
+    return static_cast<int16_t>(value * gScreenScaleY);
+}
 
 // =========================== Headers ===========================
 
@@ -466,6 +487,7 @@ public:
 
     void Update();
     void Apply(float t);
+    void SetBlinkWidth(int32_t width) { BlinkWidth = width; }
 };
 
 #endif
@@ -705,6 +727,7 @@ enum eEmotions {
 /**
  * EyePresets.h
  * Defines the eye config associated with each emotion
+ * Configurations are dynamically scaled based on screen size
  */
 
 #ifndef _EYEPRESETS_h
@@ -712,379 +735,432 @@ enum eEmotions {
 
 // #include <Arduino.h>
 
-static const EyeConfig Preset_Normal = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 75,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 15,
-        .Radius_Bottom = 15,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+class EyePresets {
+public:
+    static EyeConfig Normal() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(75),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByWidth(15),
+                .Radius_Bottom = scaleByHeight(15),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Happy = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 19,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 19,
-        .Radius_Bottom = 0,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Happy() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(19),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(19),
+                .Radius_Bottom = 0,
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Glee = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 15,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 15,
-        .Radius_Bottom = 0,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 9,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Glee() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(15),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(15),
+                .Radius_Bottom = 0,
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = scaleByHeight(9),
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Sad = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 28,
-        .Width = 75,
-        .Slope_Top = -0.5,
-        .Slope_Bottom = 0,
-        .Radius_Top = 2,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Sad() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(28),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.5,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(2),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Worried = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 47,
-        .Width = 75,
-        .Slope_Top = -0.1,
-        .Slope_Bottom = 0,
-        .Radius_Top = 11,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Worried() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(47),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.1,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(11),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Worried_Alt = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 66,
-        .Width = 75,
-        .Slope_Top = -0.2,
-        .Slope_Bottom = 0,
-        .Radius_Top = 11,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Worried_Alt() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(66),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.2,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(11),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Focused = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 26,
-        .Width = 75,
-        .Slope_Top = 0.2,
-        .Slope_Bottom = 0,
-        .Radius_Top = 6,
-        .Radius_Bottom = 2,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Focused() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(26),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0.2,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(6),
+                .Radius_Bottom = scaleByHeight(2),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Annoyed = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 22,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 0,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Annoyed() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(22),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = 0,
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Annoyed_Alt = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 9,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 0,
-        .Radius_Bottom = 8,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Annoyed_Alt() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(9),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = 0,
+                .Radius_Bottom = scaleByHeight(8),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Surprised = {
-        .OffsetX = -4,
-        .OffsetY = 0,
-        .Height = 84,
-        .Width = 84,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 30,
-        .Radius_Bottom = 30,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Surprised() {
+        return {
+                .OffsetX = scaleByWidth(-4),
+                .OffsetY = 0,
+                .Height = scaleByHeight(84),
+                .Width = scaleByWidth(84),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(30),
+                .Radius_Bottom = scaleByHeight(30),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Skeptic = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 75,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 19,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Skeptic() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(75),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(19),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Skeptic_Alt = {
-        .OffsetX = 0,
-        .OffsetY = -11,
-        .Height = 49,
-        .Width = 75,
-        .Slope_Top = 0.3,
-        .Slope_Bottom = 0,
-        .Radius_Top = 2,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Skeptic_Alt() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = scaleByHeight(-11),
+                .Height = scaleByHeight(49),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0.3,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(2),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Frustrated = {
-        .OffsetX = 6,
-        .OffsetY = -9,
-        .Height = 22,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 0,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Frustrated() {
+        return {
+                .OffsetX = scaleByWidth(6),
+                .OffsetY = scaleByHeight(-9),
+                .Height = scaleByHeight(22),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = 0,
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Unimpressed = {
-        .OffsetX = 6,
-        .OffsetY = 0,
-        .Height = 22,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 2,
-        .Radius_Bottom = 19,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Unimpressed() {
+        return {
+                .OffsetX = scaleByWidth(6),
+                .OffsetY = 0,
+                .Height = scaleByHeight(22),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(2),
+                .Radius_Bottom = scaleByHeight(19),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Unimpressed_Alt = {
-        .OffsetX = 6,
-        .OffsetY = -6,
-        .Height = 41,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 2,
-        .Radius_Bottom = 30,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Unimpressed_Alt() {
+        return {
+                .OffsetX = scaleByWidth(6),
+                .OffsetY = scaleByHeight(-6),
+                .Height = scaleByHeight(41),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(2),
+                .Radius_Bottom = scaleByHeight(30),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Sleepy = {
-        .OffsetX = 0,
-        .OffsetY = -4,
-        .Height = 26,
-        .Width = 75,
-        .Slope_Top = -0.5,
-        .Slope_Bottom = -0.5,
-        .Radius_Top = 6,
-        .Radius_Bottom = 6,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Sleepy() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = scaleByHeight(-4),
+                .Height = scaleByHeight(26),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.5,
+                .Slope_Bottom = -0.5,
+                .Radius_Top = scaleByHeight(6),
+                .Radius_Bottom = scaleByHeight(6),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Sleepy_Alt = {
-        .OffsetX = 0,
-        .OffsetY = -4,
-        .Height = 15,
-        .Width = 75,
-        .Slope_Top = -0.5,
-        .Slope_Bottom = -0.5,
-        .Radius_Top = 6,
-        .Radius_Bottom = 6,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Sleepy_Alt() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = scaleByHeight(-4),
+                .Height = scaleByHeight(15),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.5,
+                .Slope_Bottom = -0.5,
+                .Radius_Top = scaleByHeight(6),
+                .Radius_Bottom = scaleByHeight(6),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Suspicious = {
-        .OffsetX = 0,
-        .OffsetY = 0,
-        .Height = 41,
-        .Width = 75,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 15,
-        .Radius_Bottom = 6,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Suspicious() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = 0,
+                .Height = scaleByHeight(41),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(15),
+                .Radius_Bottom = scaleByHeight(6),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Suspicious_Alt = {
-        .OffsetX = 0,
-        .OffsetY = -6,
-        .Height = 30,
-        .Width = 75,
-        .Slope_Top = 0.2,
-        .Slope_Bottom = 0,
-        .Radius_Top = 11,
-        .Radius_Bottom = 6,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Suspicious_Alt() {
+        return {
+                .OffsetX = 0,
+                .OffsetY = scaleByHeight(-6),
+                .Height = scaleByHeight(30),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0.2,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(11),
+                .Radius_Bottom = scaleByHeight(6),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Squint = {
-        .OffsetX = -19,
-        .OffsetY = -6,
-        .Height = 66,
-        .Width = 66,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 15,
-        .Radius_Bottom = 15,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Squint() {
+        return {
+                .OffsetX = scaleByWidth(-19),
+                .OffsetY = scaleByHeight(-6),
+                .Height = scaleByHeight(66),
+                .Width = scaleByWidth(66),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(15),
+                .Radius_Bottom = scaleByHeight(15),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Squint_Alt = {
-        .OffsetX = 9,
-        .OffsetY = 0,
-        .Height = 38,
-        .Width = 38,
-        .Slope_Top = 0,
-        .Slope_Bottom = 0,
-        .Radius_Top = 9,
-        .Radius_Bottom = 9,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Squint_Alt() {
+        return {
+                .OffsetX = scaleByWidth(9),
+                .OffsetY = 0,
+                .Height = scaleByHeight(38),
+                .Width = scaleByWidth(38),
+                .Slope_Top = 0,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(9),
+                .Radius_Bottom = scaleByHeight(9),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Angry = {
-        .OffsetX = -6,
-        .OffsetY = 0,
-        .Height = 38,
-        .Width = 75,
-        .Slope_Top = 0.3,
-        .Slope_Bottom = 0,
-        .Radius_Top = 4,
-        .Radius_Bottom = 22,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Angry() {
+        return {
+                .OffsetX = scaleByWidth(-6),
+                .OffsetY = 0,
+                .Height = scaleByHeight(38),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0.3,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(4),
+                .Radius_Bottom = scaleByHeight(22),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Furious = {
-        .OffsetX = -4,
-        .OffsetY = 0,
-        .Height = 56,
-        .Width = 75,
-        .Slope_Top = 0.4,
-        .Slope_Bottom = 0,
-        .Radius_Top = 4,
-        .Radius_Bottom = 15,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Furious() {
+        return {
+                .OffsetX = scaleByWidth(-4),
+                .OffsetY = 0,
+                .Height = scaleByHeight(56),
+                .Width = scaleByWidth(75),
+                .Slope_Top = 0.4,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(4),
+                .Radius_Bottom = scaleByHeight(15),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Scared = {
-        .OffsetX = -6,
-        .OffsetY = 0,
-        .Height = 75,
-        .Width = 75,
-        .Slope_Top = -0.1,
-        .Slope_Bottom = 0,
-        .Radius_Top = 22,
-        .Radius_Bottom = 15,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
-};
+    static EyeConfig Scared() {
+        return {
+                .OffsetX = scaleByWidth(-6),
+                .OffsetY = 0,
+                .Height = scaleByHeight(75),
+                .Width = scaleByWidth(75),
+                .Slope_Top = -0.1,
+                .Slope_Bottom = 0,
+                .Radius_Top = scaleByHeight(22),
+                .Radius_Bottom = scaleByHeight(15),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 
-static const EyeConfig Preset_Awe = {
-        .OffsetX = 4,
-        .OffsetY = 0,
-        .Height = 66,
-        .Width = 84,
-        .Slope_Top = -0.1,
-        .Slope_Bottom = 0.1,
-        .Radius_Top = 22,
-        .Radius_Bottom = 22,
-        .Inverse_Radius_Top = 0,
-        .Inverse_Radius_Bottom = 0,
-        .Inverse_Offset_Top = 0,
-        .Inverse_Offset_Bottom = 0
+    static EyeConfig Awe() {
+        return {
+                .OffsetX = scaleByWidth(4),
+                .OffsetY = 0,
+                .Height = scaleByHeight(66),
+                .Width = scaleByWidth(84),
+                .Slope_Top = -0.1,
+                .Slope_Bottom = 0.1,
+                .Radius_Top = scaleByHeight(22),
+                .Radius_Bottom = scaleByHeight(22),
+                .Inverse_Radius_Top = 0,
+                .Inverse_Radius_Bottom = 0,
+                .Inverse_Offset_Top = 0,
+                .Inverse_Offset_Bottom = 0
+        };
+    }
 };
 
 #endif
@@ -1258,14 +1334,29 @@ public:
 class Face {
 
 public:
-    Face(uint16_t screenWidth, uint16_t screenHeight, uint16_t eyeSize);
+    Face(uint16_t screenWidth, uint16_t screenHeight);
 
     uint16_t Width;
     uint16_t Height;
     uint16_t CenterX;
     uint16_t CenterY;
-    uint16_t EyeSize;
-    uint16_t EyeInterDistance = 10;//眼间距 可以改成10
+    int16_t EyeInterDistance;
+
+    static int16_t calculateEyeInterDistance(uint16_t screenWidth) {
+        const uint16_t WIDTH_128 = 128;
+        const uint16_t WIDTH_240 = 240;
+        const int16_t DIST_128 = -10;
+        const int16_t DIST_240 = 14;
+
+        if (screenWidth <= WIDTH_128) return DIST_128;
+        if (screenWidth >= WIDTH_240) return DIST_240;
+
+        return static_cast<int16_t>(
+                DIST_128 +
+                static_cast<float>(DIST_240 - DIST_128) *
+                (screenWidth - WIDTH_128) / (WIDTH_240 - WIDTH_128)
+        );
+    }
 
     Eye LeftEye;
     Eye RightEye;
@@ -1521,23 +1612,22 @@ void LookAssistant::LookAt(float x, float y)
     float scaleY_x;
     float scaleY_y;
 
-    // What is this witchcraft...?!
-    moveX_x = -47 * x;
-    moveY_x = -6 * x;
-    moveY_y = 38 * y;
+    moveX_x = scaleByWidth(-47) * x;
+    moveY_x = scaleByHeight(-6) * x;
+    moveY_y = scaleByHeight(38) * y;
     scaleY_x = 1.0 - x * 0.2;
     scaleY_y = 1.0 - (y > 0 ? y : -y) * 0.4;
 
     transformation.MoveX = moveX_x;
-    transformation.MoveY = moveY_y; //moveY_x + moveY_y;
+    transformation.MoveY = moveY_y;
     transformation.ScaleX = 1.0;
     transformation.ScaleY = scaleY_x * scaleY_y;
     _face.RightEye.Transformation.SetDestin(transformation);
 
-    moveY_x = +3 * x;
+    moveY_x = scaleByHeight(3) * x;
     scaleY_x = 1.0 + x * 0.2;
-    transformation.MoveX = moveX_x;
-    transformation.MoveY = + moveY_y; //moveY_x + moveY_y;
+    transformation.MoveX = moveY_x;
+    transformation.MoveY = moveY_y;
     transformation.ScaleX = 1.0;
     transformation.ScaleY = scaleY_x * scaleY_y;
     _face.LeftEye.Transformation.SetDestin(transformation);
@@ -1650,128 +1740,130 @@ void FaceExpression::GoTo_Normal()
 {
     ClearVariations();
 
-    _face.RightEye.Variation1.Values.Height = 6;
-    _face.RightEye.Variation2.Values.Width = 2;
-    _face.LeftEye.Variation1.Values.Height = 4;
-    _face.LeftEye.Variation2.Values.Width = 4;
-    _face.RightEye.Variation1.Animation.SetTriangle(1000, 0);
-    _face.LeftEye.Variation1.Animation.SetTriangle(1000, 0);
+    _face.RightEye.Variation1.Values.Height = scaleByHeight(6);
+    _face.RightEye.Variation2.Values.Width = scaleByWidth(2);
+    _face.LeftEye.Variation1.Values.Height = scaleByHeight(4);
+    _face.LeftEye.Variation2.Values.Width = scaleByWidth(4);
+    _face.RightEye.Variation1.Animation.SetTriangle(5000, 5000);
+    _face.LeftEye.Variation1.Animation.SetTriangle(5000, 5000);
+    _face.RightEye.Variation2.Animation.SetTriangle(5000, 5000);
+    _face.LeftEye.Variation2.Animation.SetTriangle(5000, 5000);
 
-    _face.RightEye.TransitionTo(Preset_Normal);
-    _face.LeftEye.TransitionTo(Preset_Normal);
+    _face.RightEye.TransitionTo(EyePresets::Normal());
+    _face.LeftEye.TransitionTo(EyePresets::Normal());
 
 }
 
 void FaceExpression::GoTo_Angry()
 {
     ClearVariations();
-    _face.RightEye.Variation1.Values.OffsetY = 4;
-    _face.LeftEye.Variation1.Values.OffsetY = 4;
+    _face.RightEye.Variation1.Values.OffsetY = scaleByHeight(4);
+    _face.LeftEye.Variation1.Values.OffsetY = scaleByHeight(4);
     _face.RightEye.Variation1.Animation.SetTriangle(300, 0);
     _face.LeftEye.Variation1.Animation.SetTriangle(300, 0);
 
-    _face.RightEye.TransitionTo(Preset_Angry);
-    _face.LeftEye.TransitionTo(Preset_Angry);
+    _face.RightEye.TransitionTo(EyePresets::Angry());
+    _face.LeftEye.TransitionTo(EyePresets::Angry());
 }
 
 void FaceExpression::GoTo_Glee()
 {
     ClearVariations();
-    _face.RightEye.Variation1.Values.OffsetY = 9;
-    _face.LeftEye.Variation1.Values.OffsetY = 9;
+    _face.RightEye.Variation1.Values.OffsetY = scaleByHeight(9);
+    _face.LeftEye.Variation1.Values.OffsetY = scaleByHeight(9);
     _face.RightEye.Variation1.Animation.SetTriangle(300, 0);
     _face.LeftEye.Variation1.Animation.SetTriangle(300, 0);
 
-    _face.RightEye.TransitionTo(Preset_Glee);
-    _face.LeftEye.TransitionTo(Preset_Glee);
+    _face.RightEye.TransitionTo(EyePresets::Glee());
+    _face.LeftEye.TransitionTo(EyePresets::Glee());
 }
 
 void FaceExpression::GoTo_Happy()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Happy);
-    _face.LeftEye.TransitionTo(Preset_Happy);
+    _face.RightEye.TransitionTo(EyePresets::Happy());
+    _face.LeftEye.TransitionTo(EyePresets::Happy());
 }
 
 void FaceExpression::GoTo_Sad()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Sad);
-    _face.LeftEye.TransitionTo(Preset_Sad);
+    _face.RightEye.TransitionTo(EyePresets::Sad());
+    _face.LeftEye.TransitionTo(EyePresets::Sad());
 }
 
 void FaceExpression::GoTo_Worried()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Worried);
-    _face.LeftEye.TransitionTo(Preset_Worried_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Worried());
+    _face.LeftEye.TransitionTo(EyePresets::Worried_Alt());
 }
 
 void FaceExpression::GoTo_Focused()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Focused);
-    _face.LeftEye.TransitionTo(Preset_Focused);
+    _face.RightEye.TransitionTo(EyePresets::Focused());
+    _face.LeftEye.TransitionTo(EyePresets::Focused());
 }
 
 void FaceExpression::GoTo_Annoyed()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Annoyed);
-    _face.LeftEye.TransitionTo(Preset_Annoyed_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Annoyed());
+    _face.LeftEye.TransitionTo(EyePresets::Annoyed_Alt());
 }
 
 void FaceExpression::GoTo_Surprised()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Surprised);
-    _face.LeftEye.TransitionTo(Preset_Surprised);
+    _face.RightEye.TransitionTo(EyePresets::Surprised());
+    _face.LeftEye.TransitionTo(EyePresets::Surprised());
 }
 
 void FaceExpression::GoTo_Skeptic()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Skeptic);
-    _face.LeftEye.TransitionTo(Preset_Skeptic_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Skeptic());
+    _face.LeftEye.TransitionTo(EyePresets::Skeptic_Alt());
 }
 
 void FaceExpression::GoTo_Frustrated()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Frustrated);
-    _face.LeftEye.TransitionTo(Preset_Frustrated);
+    _face.RightEye.TransitionTo(EyePresets::Frustrated());
+    _face.LeftEye.TransitionTo(EyePresets::Frustrated());
 }
 
 void FaceExpression::GoTo_Unimpressed()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Unimpressed);
-    _face.LeftEye.TransitionTo(Preset_Unimpressed_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Unimpressed());
+    _face.LeftEye.TransitionTo(EyePresets::Unimpressed_Alt());
 }
 
 void FaceExpression::GoTo_Sleepy()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Sleepy);
-    _face.LeftEye.TransitionTo(Preset_Sleepy_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Sleepy());
+    _face.LeftEye.TransitionTo(EyePresets::Sleepy_Alt());
 }
 
 void FaceExpression::GoTo_Suspicious()
 {
     ClearVariations();
-    _face.RightEye.TransitionTo(Preset_Suspicious);
-    _face.LeftEye.TransitionTo(Preset_Suspicious_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Suspicious());
+    _face.LeftEye.TransitionTo(EyePresets::Suspicious_Alt());
 }
 
 void FaceExpression::GoTo_Squint()
 {
     ClearVariations();
 
-    _face.LeftEye.Variation1.Values.OffsetX = 11;
-    _face.LeftEye.Variation2.Values.OffsetY = 11;
+    _face.LeftEye.Variation1.Values.OffsetX = scaleByWidth(11);
+    _face.LeftEye.Variation2.Values.OffsetY = scaleByHeight(11);
 
-    _face.RightEye.TransitionTo(Preset_Squint);
-    _face.LeftEye.TransitionTo(Preset_Squint_Alt);
+    _face.RightEye.TransitionTo(EyePresets::Squint());
+    _face.LeftEye.TransitionTo(EyePresets::Squint_Alt());
 
 }
 
@@ -1779,24 +1871,24 @@ void FaceExpression::GoTo_Furious()
 {
     ClearVariations();
 
-    _face.RightEye.TransitionTo(Preset_Furious);
-    _face.LeftEye.TransitionTo(Preset_Furious);
+    _face.RightEye.TransitionTo(EyePresets::Furious());
+    _face.LeftEye.TransitionTo(EyePresets::Furious());
 }
 
 void FaceExpression::GoTo_Scared()
 {
     ClearVariations();
 
-    _face.RightEye.TransitionTo(Preset_Scared);
-    _face.LeftEye.TransitionTo(Preset_Scared);
+    _face.RightEye.TransitionTo(EyePresets::Scared());
+    _face.LeftEye.TransitionTo(EyePresets::Scared());
 }
 
 void FaceExpression::GoTo_Awe()
 {
     ClearVariations();
 
-    _face.RightEye.TransitionTo(Preset_Awe);
-    _face.LeftEye.TransitionTo(Preset_Awe);
+    _face.RightEye.TransitionTo(EyePresets::Awe());
+    _face.LeftEye.TransitionTo(EyePresets::Awe());
 }
 
 // ===== FaceBehavior.cpp =====
@@ -1889,18 +1981,21 @@ void FaceBehavior::GoToEmotion(eEmotions emotion) {
 }
 
 // ===== Face.cpp =====
-Face::Face(uint16_t screenWidth, uint16_t screenHeight, uint16_t eyeSize)
+Face::Face(uint16_t screenWidth, uint16_t screenHeight)
         : LeftEye(*this), RightEye(*this), Blink(*this), Look(*this), Behavior(*this), Expression(*this) {
-
-    // Unlike almost every other Arduino library (and the I2C address scanner script etc.)
-    // u8g2 uses 8-bit I2C address, so we shift the 7-bit address left by one
 
     Width = screenWidth;
     Height = screenHeight;
-    EyeSize = eyeSize;
+    EyeInterDistance = calculateEyeInterDistance(screenWidth);
 
     CenterX = Width / 2;
     CenterY = Height / 2;
+
+    calculateScreenScale(screenWidth, screenHeight);
+
+    int32_t scaledBlinkWidth = scaleByWidth(75);
+    LeftEye.BlinkTransformation.SetBlinkWidth(scaledBlinkWidth);
+    RightEye.BlinkTransformation.SetBlinkWidth(scaledBlinkWidth);
 
     LeftEye.IsMirrored = true;
 
@@ -1951,11 +2046,13 @@ void Face::Draw() {
     u8g2.clearBuffer();     // ✅ 必须：清空上一帧/随机垃圾
     u8g2.setDrawColor(1);   // ✅ 建议：确保用“点亮像素”绘制
 
-    LeftEye.CenterX = CenterX - EyeSize / 2 - EyeInterDistance;
+    // LeftEye.CenterX = CenterX - EyeSize / 2 - EyeInterDistance;
+    LeftEye.CenterX = CenterX - CenterX / 2  + CenterX/30;
     LeftEye.CenterY = CenterY;
     LeftEye.Draw();
 
-    RightEye.CenterX = CenterX + EyeSize / 2 + EyeInterDistance;
+    // RightEye.CenterX = CenterX + EyeSize / 2 + EyeInterDistance;
+    RightEye.CenterX = CenterX + CenterX / 2  - CenterX/30;
     RightEye.CenterY = CenterY;
     RightEye.Draw();
 
@@ -2060,7 +2157,7 @@ void setLook(float x, float y) {
 }
 
 void initFaceDisplay() {
-    gFace = new Face(u8g2.width(), u8g2.height(), 75);
+    gFace = new Face(u8g2.width(), u8g2.height());
     gFace->Behavior.GoToEmotion(eEmotions::Normal);
 //   setAutoMode(true);
 }
@@ -2137,7 +2234,24 @@ int main() {
     const unsigned long CHANGE_INTERVAL = 3000; // 3秒
     while (true) {
         updateFace();
+#ifdef _WIN32
+        MSG msg;
+       if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+           if (msg.message == WM_QUIT) break;
+           TranslateMessage(&msg);
+           DispatchMessage(&msg);
+       }
 
+       if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+           currentEmotion = (currentEmotion + 1) % emotionCount;
+           setEmotion(emotions[currentEmotion].name);
+           printEmotion(emotions[currentEmotion].name, emotions[currentEmotion].chinese);
+
+           while (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+               std::this_thread::sleep_for(std::chrono::milliseconds(50));
+           }
+       }
+#else
         unsigned long now = millis();
 
         if (now - lastChange >= CHANGE_INTERVAL) {
@@ -2154,25 +2268,10 @@ int main() {
 
             setEmotion(emotions[currentEmotion].name);
         }
-//        MSG msg;
-//        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-//            if (msg.message == WM_QUIT) break;
-//            TranslateMessage(&msg);
-//            DispatchMessage(&msg);
-//        }
-//
-//        if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
-//            currentEmotion = (currentEmotion + 1) % emotionCount;
-//            setEmotion(emotions[currentEmotion].name);
-//            printEmotion(emotions[currentEmotion].name, emotions[currentEmotion].chinese);
-//
-//            while (GetAsyncKeyState(VK_RETURN) & 0x8000) {
-//                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-//            }
-//        }
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(30));
+#endif
+//        std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
     return 0;
 }
+
 

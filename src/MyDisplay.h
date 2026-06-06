@@ -1,4 +1,5 @@
 
+
 #include <stdint.h>
 #include <stdio.h>
 #include <thread>
@@ -8,6 +9,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <Shellapi.h>
+#pragma comment(lib, "Shell32.lib")
 #elif defined(__APPLE__)
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -24,6 +27,7 @@ private:
     int _width;
     int _height;
     uint8_t* _buffer;
+    uint8_t* _lastBuffer;
 #ifdef __APPLE__
     int _udpSock;
     sockaddr_in _udpAddr;
@@ -33,12 +37,17 @@ private:
     HDC _hdc;
     HBITMAP _hbitmap;
     BITMAPINFO _bmi;
+    bool _isDragging;
+    POINT _dragStart;
+    POINT _windowStart;
+    bool _isInTaskbar;
+    HWND _originalParent;
 #endif
 
     // 脏区域跟踪 - 本次刷新区域 (x1, y1)左上角, (x2, y2)右下角
     int _dirtyX1 = 0, _dirtyY1 = 0, _dirtyX2 = 0, _dirtyY2 = 0;
     // 上次刷新区域（用于比较）
-    int _lastDirtyX1 = 0, _lastDirtyY1 = 0, _lastDirtyX2 = 240, _lastDirtyY2 = 120;
+    int _lastDirtyX1 = 0, _lastDirtyY1 = 0, _lastDirtyX2 = 0, _lastDirtyY2 = 0;
 
     void updateDirtyRegion(int x1, int y1, int x2, int y2) {
         if (x2 <= x1 || y2 <= y1) return;
@@ -58,6 +67,7 @@ private:
 public:
     MyDisplay(int width, int height) : _width(width), _height(height) {
         _buffer = new uint8_t[width * height]();
+        _lastBuffer = new uint8_t[width * height]();
 #ifdef __APPLE__
         _udpSock = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -71,12 +81,16 @@ public:
         _hwnd = NULL;
         _hdc = NULL;
         _hbitmap = NULL;
-        initWindow();
+        _isDragging = false;
+        _isInTaskbar = false;
+        _originalParent = NULL;
+        initFloatWindow();
 #endif
     }
 
     ~MyDisplay() {
         delete[] _buffer;
+        delete[] _lastBuffer;
 #ifdef __APPLE__
         if (_udpSock >= 0) close(_udpSock);
 #endif
@@ -85,6 +99,29 @@ public:
         if (_hdc) ReleaseDC(_hwnd, _hdc);
         if (_hwnd) DestroyWindow(_hwnd);
 #endif
+    }
+
+    bool hasBufferChanged() const {
+        for (int i = 0; i < _width * _height; i++) {
+            if (_buffer[i] != _lastBuffer[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void copyBufferToLast() {
+        for (int i = 0; i < _width * _height; i++) {
+            _lastBuffer[i] = _buffer[i];
+        }
+    }
+
+    bool needsRefresh() {
+        if (!hasBufferChanged()) {
+            return false;
+        }
+        copyBufferToLast();
+        return true;
     }
 
     int width() const { return _width; }
@@ -106,8 +143,10 @@ public:
     }
 
     void display() {
+        if (!needsRefresh()) {
+            return;
+        }
 
-        // 刷新区域逻辑：直接取本次和上次区域的并集
         int refreshX1, refreshY1, refreshX2, refreshY2;
 
         if (_dirtyX2 > 0 && _dirtyY2 > 0 && _lastDirtyX2 > 0 && _lastDirtyY2 > 0) {
@@ -190,158 +229,99 @@ public:
             }
         }
 #elif __APPLE__
-        // =============================
-        // macOS UDP显示逻辑
-        // 与 Win32 保持一致：
-        // 1. 使用 refreshX1/refreshY1/refreshW/refreshH
-        // 2. 只发送脏区域
-        // 3. 位图采用 1bit BitPacked 格式
-        // =============================
+// =============================
+// macOS UDP显示逻辑
+// 全屏刷新
+// SH1106 Page 格式
+// 单包发送
+// =============================
 
-        uint16_t x = refreshX1;
-        uint16_t y = refreshY1;
+        uint16_t x = 0;
+        uint16_t y = 0;
 
-        // ESP32 解码要求宽度必须是 8 的倍数
-        uint16_t w = (refreshW + 7) & ~7;
-        uint16_t h = refreshH;
+        uint16_t w = 128;
+        uint16_t h = 64;
 
-        // 没有脏区域时直接返回
-        if (w > 0 && h > 0)
+        int pageCount = 8;
+
+        std::vector<uint8_t> packed(w * pageCount, 0);
+
+        for (int page = 0; page < 8; page++)
         {
-            const int bytesPerRow = w / 8;
+            int pageOffset = page * w;
 
-            // BitPacked 数据
-            std::vector<uint8_t> packed(bytesPerRow * h, 0);
-
-            // 将脏区域压缩为 1bit 位图
-            for (int row = 0; row < h; row++)
+            for (int col = 0; col < w; col++)
             {
-                for (int byteIndex = 0;
-                     byteIndex < bytesPerRow;
-                     byteIndex++)
+                uint8_t value = 0;
+
+                for (int bit = 0; bit < 8; bit++)
                 {
-                    uint8_t value = 0;
+                    int srcY = page * 8 + bit;
 
-                    for (int bit = 0; bit < 8; bit++)
+                    if (_buffer[srcY * _width + col])
                     {
-                        int srcX = refreshX1 + byteIndex * 8 + bit;
-                        int srcY = refreshY1 + row;
-
-                        if (srcX >= _width || srcY >= _height)
-                        {
-                            continue;
-                        }
-
-                        if (_buffer[srcY * _width + srcX])
-                        {
-                            value |= (0x80 >> bit);
-                        }
+                        value |= (1 << bit);
                     }
-
-                    packed[row * bytesPerRow + byteIndex] = value;
                 }
-            }
 
-            // UDP最大负载
-            constexpr int HEADER_SIZE = 9;
-            constexpr int MAX_PACKET_SIZE = 1440;
-
-            // 每个UDP包最多容纳多少行
-            int rowsPerPacket =
-                (MAX_PACKET_SIZE - HEADER_SIZE)
-                / bytesPerRow;
-
-            if (rowsPerPacket < 1)
-            {
-                rowsPerPacket = 1;
-            }
-
-            auto put16 = [](std::vector<uint8_t>& buf,
-                            uint16_t value)
-            {
-                buf.push_back(value >> 8);
-                buf.push_back(value & 0xFF);
-            };
-
-            // 分包发送
-            for (int startRow = 0;
-                 startRow < h;
-                 startRow += rowsPerPacket)
-            {
-                int packetRows =
-                    std::min(rowsPerPacket,
-                             (int)h - startRow);
-
-                int bitmapOffset =
-                    startRow * bytesPerRow;
-
-                int bitmapSize =
-                    packetRows * bytesPerRow;
-
-                std::vector<uint8_t> packet;
-
-                packet.reserve(
-                    HEADER_SIZE + bitmapSize
-                );
-
-                // 协议号
-                packet.push_back(0x42);
-
-                // ESP32协议头
-                put16(packet, x);
-                put16(packet, y + startRow);
-                put16(packet, w);
-                put16(packet, packetRows);
-
-                packet.insert(
-                    packet.end(),
-                    packed.begin() + bitmapOffset,
-                    packed.begin() + bitmapOffset + bitmapSize
-                );
-                struct timeval tv;
-                gettimeofday(&tv, nullptr);
-
-                struct tm* tm_info = localtime(&tv.tv_sec);
-
-                int milliseconds = (int)(tv.tv_usec / 1000);
-
-                printf(
-                    "\n[%02d:%02d:%02d.%03d] UDP Packet - "
-                    "Dirty:(%d,%d,%d,%d) "
-                    "Refresh:(%d,%d,%d,%d) "
-                    "PacketRow:%d "
-                    "PacketHeight:%d "
-                    "PacketSize:%zu",
-                    tm_info->tm_hour,
-                    tm_info->tm_min,
-                    tm_info->tm_sec,
-                    milliseconds,
-                    _dirtyX1,
-                    _dirtyY1,
-                    _dirtyX2,
-                    _dirtyY2,
-                    refreshX1,
-                    refreshY1,
-                    refreshX2,
-                    refreshY2,
-                    startRow,
-                    packetRows,
-                    packet.size()
-                );
-
-                sendto(
-                    _udpSock,
-                    packet.data(),
-                    packet.size(),
-                    0,
-                    (sockaddr*)&_udpAddr,
-                    sizeof(_udpAddr)
-                );
-
-                // 给 ESP32 一点处理时间
-                usleep(1000);
+                packed[pageOffset + col] = value;
             }
         }
+
+        constexpr int HEADER_SIZE = 9;
+
+        auto put16 = [](std::vector<uint8_t>& buf,
+                        uint16_t value)
+        {
+            buf.push_back(value >> 8);
+            buf.push_back(value & 0xFF);
+        };
+
+        std::vector<uint8_t> packet;
+
+        packet.reserve(
+                HEADER_SIZE + packed.size()
+        );
+
+        packet.push_back(0x42);
+
+        put16(packet, x);
+        put16(packet, y);
+        put16(packet, w);
+        put16(packet, h);
+
+        packet.insert(
+                packet.end(),
+                packed.begin(),
+                packed.end()
+        );
+
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+
+        struct tm* tm_info = localtime(&tv.tv_sec);
+
+        int milliseconds = (int)(tv.tv_usec / 1000);
+
+        printf(
+                "\n[%02d:%02d:%02d.%03d] "
+                "UDP FullScreen "
+                "PacketSize:%zu",
+                tm_info->tm_hour,
+                tm_info->tm_min,
+                tm_info->tm_sec,
+                milliseconds,
+                packet.size()
+        );
+
+        sendto(
+                _udpSock,
+                packet.data(),
+                packet.size(),
+                0,
+                (sockaddr*)&_udpAddr,
+                sizeof(_udpAddr)
+        );
 
 #else
         printf("\nDisplay (%dx%d):\n", _width, _height);
@@ -436,41 +416,162 @@ public:
 
 private:
 #ifdef _WIN32
-    void initWindow() {
-        const int scale = 1;
-        int windowWidth = _width * scale;
-        int windowHeight = _height * scale;
-        
-        // 注册窗口类
-        WNDCLASSA wc = {0};
-        wc.lpfnWndProc = [](HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT {
-            if (msg == WM_DESTROY) {
+    // void initWindow() {
+    //     const int scale = 1;
+    //     int windowWidth = _width * scale;
+    //     int windowHeight = _height * scale;
+
+    //     // 注册窗口类
+    //     WNDCLASSA wc = {0};
+    //     wc.lpfnWndProc = [](HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT {
+    //         if (msg == WM_DESTROY) {
+    //             PostQuitMessage(0);
+    //             return 0;
+    //         }
+    //         return DefWindowProcA(hwnd, msg, wParam, lParam);
+    //     };
+    //     wc.hInstance = GetModuleHandleA(NULL);
+    //     wc.lpszClassName = "MyDisplayWindow";
+    //     wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+
+    //     RegisterClassA(&wc);
+
+    //     // 创建窗口
+    //     _hwnd = CreateWindowExA(
+    //         0, "MyDisplayWindow", "MyDisplay",
+    //         WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX,
+    //         CW_USEDEFAULT, CW_USEDEFAULT,
+    //         windowWidth + GetSystemMetrics(SM_CXFRAME) * 2,
+    //         windowHeight + GetSystemMetrics(SM_CYFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),
+    //         NULL, NULL, GetModuleHandleA(NULL), NULL
+    //     );
+
+    //     if (_hwnd) {
+    //         ShowWindow(_hwnd, SW_SHOW);
+    //         _hdc = GetDC(_hwnd);
+    //     }
+    // }
+
+
+void initFloatWindow() {
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = [](HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) -> LRESULT {
+        MyDisplay* pThis = reinterpret_cast<MyDisplay*>(GetWindowLongPtrA(hwnd, GWLP_USERDATA));
+
+        switch (msg) {
+            case WM_DESTROY:
                 PostQuitMessage(0);
                 return 0;
+
+            case WM_LBUTTONDOWN: {
+                if (!pThis->_isInTaskbar) {
+                    pThis->_isDragging = true;
+                    pThis->_dragStart = {LOWORD(lParam), HIWORD(lParam)};
+                    GetWindowRect(hwnd, (LPRECT)&pThis->_windowStart);
+                    SetCapture(hwnd);
+                }
+                return 0;
             }
-            return DefWindowProcA(hwnd, msg, wParam, lParam);
-        };
-        wc.hInstance = GetModuleHandleA(NULL);
-        wc.lpszClassName = "MyDisplayWindow";
-        wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-        
-        RegisterClassA(&wc);
-        
-        // 创建窗口
-        _hwnd = CreateWindowExA(
-            0, "MyDisplayWindow", "MyDisplay",
-            WS_OVERLAPPEDWINDOW & ~WS_THICKFRAME & ~WS_MAXIMIZEBOX,
-            CW_USEDEFAULT, CW_USEDEFAULT,
-            windowWidth + GetSystemMetrics(SM_CXFRAME) * 2,
-            windowHeight + GetSystemMetrics(SM_CYFRAME) * 2 + GetSystemMetrics(SM_CYCAPTION),
-            NULL, NULL, GetModuleHandleA(NULL), NULL
-        );
-        
-        if (_hwnd) {
-            ShowWindow(_hwnd, SW_SHOW);
-            _hdc = GetDC(_hwnd);
+
+            case WM_LBUTTONUP: {
+                if (pThis->_isDragging) {
+                    pThis->_isDragging = false;
+                    ReleaseCapture();
+
+                    POINT cursorPos;
+                    GetCursorPos(&cursorPos);
+
+                    HWND hTaskbar = FindWindowA("Shell_TrayWnd", NULL);
+                    if (hTaskbar) {
+                        RECT taskbarRect;
+                        GetWindowRect(hTaskbar, &taskbarRect);
+
+                        if (cursorPos.x >= taskbarRect.left && cursorPos.x <= taskbarRect.right &&
+                            cursorPos.y >= taskbarRect.top && cursorPos.y <= taskbarRect.bottom) {
+                            pThis->_originalParent = GetParent(hwnd);
+                            SetParent(hwnd, hTaskbar);
+
+                            int xPos = (taskbarRect.right - taskbarRect.left) - pThis->_width - 100;
+
+                            SetWindowPos(hwnd, NULL, xPos, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                            SetWindowLongPtrA(hwnd, GWL_STYLE, WS_CHILD | WS_VISIBLE);
+                            SetWindowLongPtrA(hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+                            pThis->_isInTaskbar = true;
+                        }
+                    }
+                }
+                return 0;
+            }
+
+            case WM_MOUSEMOVE: {
+                if (pThis->_isDragging && !pThis->_isInTaskbar) {
+                    POINT cursorPos;
+                    GetCursorPos(&cursorPos);
+
+                    int newX = pThis->_windowStart.x + cursorPos.x - pThis->_dragStart.x;
+                    int newY = pThis->_windowStart.y + cursorPos.y - pThis->_dragStart.y;
+
+                    SetWindowPos(hwnd, NULL, newX, newY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+                }
+                return 0;
+            }
+
+            case WM_RBUTTONDOWN: {
+                if (pThis->_isInTaskbar) {
+                    pThis->_isInTaskbar = false;
+
+                    POINT cursorPos;
+                    GetCursorPos(&cursorPos);
+
+                    SetParent(hwnd, pThis->_originalParent);
+                    SetWindowLongPtrA(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+                    SetWindowLongPtrA(hwnd, GWL_EXSTYLE, WS_EX_TOOLWINDOW | WS_EX_TOPMOST);
+                    SetWindowPos(hwnd, HWND_TOPMOST, cursorPos.x - pThis->_width/2, cursorPos.y - pThis->_height/2, 0, 0, SWP_NOSIZE);
+                }
+                return 0;
+            }
+
+            case WM_NCHITTEST: {
+                if (pThis->_isInTaskbar) {
+                    return HTTRANSPARENT;
+                }
+                return HTCAPTION;
+            }
         }
+        return DefWindowProcA(hwnd, msg, wParam, lParam);
+    };
+    wc.hInstance = GetModuleHandleA(NULL);
+    wc.lpszClassName = "MyFloatWindow";
+    wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    wc.style = CS_DBLCLKS;
+
+    RegisterClassA(&wc);
+
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    int xPos = (screenWidth - _width) / 2;
+    int yPos = (screenHeight - _height) / 2;
+
+    _hwnd = CreateWindowExA(
+        WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
+        "MyFloatWindow",
+        "",
+        WS_POPUP | WS_VISIBLE,
+        xPos, yPos,
+        _width,
+        _height,
+        NULL,
+        NULL,
+        GetModuleHandleA(NULL),
+        NULL
+    );
+
+    if (_hwnd) {
+        SetWindowLongPtrA(_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+        ShowWindow(_hwnd, SW_SHOW);
+        _hdc = GetDC(_hwnd);
     }
+}
 #endif
 
     void fillRect(int x, int y, int w, int h, uint8_t color) {
@@ -557,4 +658,5 @@ public:
 };
 
 
-    
+
+
