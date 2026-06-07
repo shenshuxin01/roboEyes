@@ -131,15 +131,28 @@ public:
         return _buffer[y * _width + x];
     }
 
-    void clearDisplay() {
-        for (int i = 0; i < _width * _height; i++) {
-            _buffer[i] = 0;
-        }
+    void clearDisplay(bool initFlag=false) {
+//        for (int i = 0; i < _width * _height; i++) {
+//            _buffer[i] = 0;
+//        }
+        memset(_buffer, 0, _width * _height);
         // 重置本次脏区域为初始值（全屏）
         // _dirtyX1 = 0;
         // _dirtyY1 = 0;
         // _dirtyX2 = _width;
         // _dirtyY2 = _height;
+        if (initFlag){
+            const char* cmd = "zzzz";
+            sendto(
+                    _udpSock,
+                    cmd,
+                    4,
+                    0,
+                    (sockaddr*)&_udpAddr,
+                    sizeof(_udpAddr)
+            );
+        }
+
     }
 
     void display() {
@@ -272,7 +285,6 @@ public:
                     {
                         value |= (1 << bit);
                     }
-
                 }
 
                 packed[pageOffset + col] = value;
@@ -307,23 +319,24 @@ public:
                 packed.end()
         );
 
-//        struct timeval tv;
-//        gettimeofday(&tv, nullptr);
-//
-//        struct tm* tm_info = localtime(&tv.tv_sec);
-//
-//        int milliseconds = (int)(tv.tv_usec / 1000);
-//
-//        printf(
-//                "\n[%02d:%02d:%02d.%03d] "
-//                "UDP FullScreen "
-//                "PacketSize:%zu",
-//                tm_info->tm_hour,
-//                tm_info->tm_min,
-//                tm_info->tm_sec,
-//                milliseconds,
-//                packet.size()
-//        );
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+
+        struct tm* tm_info = localtime(&tv.tv_sec);
+
+        int milliseconds = (int)(tv.tv_usec / 1000);
+
+        printf(
+                "\n[%02d:%02d:%02d.%03d] "
+                "UDP x:%hu,y:%hu,Screen:%hu*%hu "
+                "PacketSize:%zu",
+                tm_info->tm_hour,
+                tm_info->tm_min,
+                tm_info->tm_sec,
+                milliseconds,
+                x,y,w,h,
+                packet.size()
+        );
 
         sendto(
                 _udpSock,
@@ -333,6 +346,7 @@ public:
                 (sockaddr*)&_udpAddr,
                 sizeof(_udpAddr)
         );
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
 
 #else
         printf("\nDisplay (%dx%d):\n", _width, _height);
@@ -355,6 +369,7 @@ public:
         _dirtyX2 = 0;
         _dirtyY2 = 0;
     }
+
     void fillRoundRect(int x, int y, int w, int h, int r, uint8_t color) {
         // printf("fillRoundRect: x=%d, y=%d, w=%d, h=%d, r=%d, color=%d\n", x, y, w, h, r, color);
         int r2 = r * 2;
@@ -647,8 +662,8 @@ public:
         _drawColor = color;
     }
 
-    void clearBuffer() {
-        clearDisplay();
+    void clearBuffer(bool initFlag= false) {
+        clearDisplay(initFlag);
     }
 
     void sendBuffer() {

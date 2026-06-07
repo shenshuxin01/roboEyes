@@ -2159,6 +2159,7 @@ void setLook(float x, float y) {
 void initFaceDisplay() {
     gFace = new Face(u8g2.width(), u8g2.height());
     gFace->Behavior.GoToEmotion(eEmotions::Normal);
+    u8g2.clearBuffer(true);
 //   setAutoMode(true);
 }
 
@@ -2263,6 +2264,7 @@ int main() {
             if (currentEmotion >= emotionCount) {
 
                 currentEmotion = 0;
+                setAutoMode(false);
 
             }
 
