@@ -2232,7 +2232,7 @@ int main() {
 #endif
     unsigned long lastChange = 0;
 
-    const unsigned long CHANGE_INTERVAL = 3000; // 3秒
+    const unsigned long CHANGE_INTERVAL = 30000; // 3秒
     while (true) {
         updateFace();
 #ifdef _WIN32

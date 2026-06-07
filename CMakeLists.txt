@@ -7,4 +7,6 @@ add_executable(roboEyes main.cpp
         src/forza_horizon5/ForzaUdp.cpp
         src/forza_horizon5/ForzaUdp.h
         src/forza_horizon5/main.cpp
-        src/forza_horizon5/main.h)
+        src/forza_horizon5/main.h
+        src/display_4_number/display_4_number.cpp
+        src/display_4_number/display_4_number.h)
