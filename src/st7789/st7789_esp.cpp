@@ -31,6 +31,8 @@ void lcdInit()
         Serial.println("LittleFS mount failed");
         return;
     }
+    Serial.println("LittleFS mounted");
+
 }
 
 
@@ -38,14 +40,17 @@ void lcdInit()
 
 void showRGB565(const char* path)
 {
-
     File file = LittleFS.open(path);
 
     if (!file)
+    {
         Serial.println();
         Serial.print("open file failed: ");
         Serial.println(path);
         return;
+    }
+    Serial.print("open file success, size=");
+    Serial.println(file.size());
     tft.fillScreen(TFT_BLACK);
     static uint16_t buffer[240 * BLOCK_LINES];
 
@@ -170,6 +175,8 @@ void processPacket(uint8_t* data, int len)
 void setup()
 {
     Serial.begin(115200);
+    Serial.println();
+    Serial.println("===== start esp32 =====");
 
     lcdInit();
 
