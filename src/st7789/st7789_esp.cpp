@@ -38,13 +38,15 @@ void lcdInit()
 
 void showRGB565(const char* path)
 {
+
     File file = LittleFS.open(path);
 
     if (!file)
+        Serial.println();
         Serial.print("open file failed: ");
         Serial.println(path);
         return;
-
+    tft.fillScreen(TFT_BLACK);
     static uint16_t buffer[240 * BLOCK_LINES];
 
     int y = 0;
@@ -146,6 +148,16 @@ void processPacket(uint8_t* data, int len)
 
     if (x >= 240 || y >= 240)
         return;
+    Serial.print("udp_receive x: ");
+    Serial.print(x);
+    Serial.print(" y: ");
+    Serial.print(y);
+    Serial.print(" w: ");
+    Serial.print(w);
+    Serial.print(" h: ");
+    Serial.print(h);
+    Serial.print(" package_len: ");
+    Serial.println(len);
 
     tft.startWrite();
     tft.setAddrWindow(x, y, w, h);
@@ -181,8 +193,6 @@ void setup()
     setScreenBrightness(255);
 
     lastPacketTime = millis();
-
-    tft.fillScreen(TFT_BLACK);
 
     Serial.println("st7789 UDP listen 9998");
 }
