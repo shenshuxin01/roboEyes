@@ -17,6 +17,11 @@ unsigned long lastPacketTime = 0;
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
+IPAddress local_IP(192, 168, 0, 107);
+IPAddress gateway(192, 168, 0, 1);
+IPAddress subnet(255, 255, 255, 0);
+IPAddress primaryDNS(192, 168, 0, 1);
+
 void lcdInit()
 {
     pinMode(TFT_BL, OUTPUT);
@@ -179,6 +184,15 @@ void setup()
     Serial.println("===== start esp32 =====");
 
     lcdInit();
+
+    if (!WiFi.config(
+            local_IP,
+            gateway,
+            subnet,
+            primaryDNS))
+    {
+        Serial.println("STA Failed to configure");
+    }
 
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
