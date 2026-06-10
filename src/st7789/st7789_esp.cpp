@@ -17,7 +17,7 @@ unsigned long lastPacketTime = 0;
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-IPAddress local_IP(192, 168, 0, 107);
+IPAddress local_IP(192, 168, 0, 108);
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(192, 168, 0, 1);
