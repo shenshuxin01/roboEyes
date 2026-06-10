@@ -2,6 +2,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <esp_wifi.h>
 
 TFT_eSPI tft = TFT_eSPI();
 
@@ -193,7 +194,7 @@ void setup()
     {
         Serial.println("STA Failed to configure");
     }
-
+    WiFi.setSleep(false);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     Serial.print("WiFi connecting");
@@ -204,6 +205,7 @@ void setup()
         Serial.print(".");
     }
 
+    esp_wifi_set_ps(WIFI_PS_NONE);
     Serial.println();
     Serial.println(WiFi.localIP());
 
