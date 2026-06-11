@@ -84,7 +84,7 @@ private:
 public:
     ShouBing(int midX, int midY)
         : defMidX(midX), defMidY(midY) {
-        pinMode(SW, INPUT_PULLUP);
+        pinMode(SW, INPUT);
 
         xTaskCreatePinnedToCore(
                 taskEntry,
@@ -101,11 +101,11 @@ public:
     static Field getCurData(){
         int x = analogRead(VRx); // 0~4095
         int y = analogRead(VRy);
-        int sw = digitalRead(SW); // 0=按下
+        int sw = analogRead(SW); // 0=按下
         Field field{};
         field.x=x;
         field.y=y;
-        field.sw= sw;
+        field.sw= sw==0;
 #ifdef DEBUG
         Serial.print("X:");
         Serial.print(x);
