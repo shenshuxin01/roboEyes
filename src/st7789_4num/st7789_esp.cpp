@@ -176,6 +176,85 @@ void processPacket(uint8_t* data, int len)
     tft.endWrite();
 }
 
+void starting_play()
+{
+    setScreenBrightness(255);
+
+    constexpr int width = 240;
+    constexpr int height = 240;
+    constexpr int blockLines = 20;
+
+    static uint16_t buf[width * blockLines];
+
+    struct BootImage
+    {
+        const char* path;
+        int delaySec;
+    };
+
+    const BootImage images[] = {
+            {"/winxp_load.rgb565", 10},
+            {"/winxp_welcome.rgb565", 3},
+            {"/winxp_desk.rgb565", 1}
+    };
+
+    for (const auto& img : images)
+    {
+        File file = LittleFS.open(img.path, "r");
+
+        if (!file)
+        {
+            Serial.print("open file failed: ");
+            Serial.println(img.path);
+            continue;
+        }
+
+        for (int y = 0; y < height; y += blockLines)
+        {
+            int h = min(blockLines, height - y);
+            int size = width * h * 2;
+
+            int bytesRead = file.read((uint8_t*)buf, size);
+            if (bytesRead != size)
+            {
+                break;
+            }
+
+            tft.pushImage(0, y, width, h, buf);
+        }
+
+        file.close();
+
+        if (strcmp(img.path, "/winxp_load.rgb565") == 0)
+        {
+            File loading = LittleFS.open("/winxp_loading.rgb565", "r");
+
+            if (loading)
+            {
+                uint16_t loadingBuf[24 * 9];
+                static uint16_t loadingBlack[87 * 9] = {0};
+
+                loading.read((uint8_t*)loadingBuf, sizeof(loadingBuf));
+                loading.close();
+
+                for (int restart = 0; restart < 5; restart++)
+                {
+                    for (int loadingX = 66; loadingX < 138; loadingX += 8)
+                    {
+                        tft.pushImage(66, 199, 87, 9, loadingBlack);
+                        tft.pushImage(loadingX, 199, 24, 9, loadingBuf);
+                        delay(180);
+                    }
+                }
+            }
+        }
+        else
+        {
+            delay(img.delaySec * 1000);
+        }
+    }
+}
+
 
 
 void setup()
@@ -209,7 +288,7 @@ void setup()
     Serial.println();
     Serial.println(WiFi.localIP());
 
-    showRGB565("/winxp_desk.rgb565");
+    starting_play();
 
     udp.begin(UDP_PORT);
 
