@@ -38,7 +38,7 @@ struct Field {
     bool sw;
 };
 enum Direction {
-     TOP,BOTTOM,LEFT,RIGHT,DOWN,NONE
+    RIGHT=1,LEFT=2,BOTTOM=3,TOP=4,DOWN=5,NONE=0
 };
 
 class ShouBing{

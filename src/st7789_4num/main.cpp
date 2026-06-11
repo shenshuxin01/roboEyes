@@ -72,6 +72,46 @@ void setup()
 
 }
 
+/**
+ * 已经改成 JSON 协议了。
+
+请求示例：
+{"cmd":"setNumber","value":1234}
+
+带小数点：
+{"cmd":"setNumber","value":1234,"dotPos":1}
+
+开启数码管：
+{"cmd":"displayEnable"}
+
+关闭数码管：
+{"cmd":"displayDisable"}
+
+显示网络时间：
+{"cmd":"displayTime"}
+
+唤醒屏幕：
+{"cmd":"screenWakeup"}
+
+关闭屏幕：
+{"cmd":"screenSleep"}
+
+读取摇杆方向：
+{"cmd":"getDirection"}
+
+返回：
+{
+  "success": true,
+  "direction": 1
+}
+
+错误请求：
+{
+  "success": false,
+  "message": "unknown command"
+}
+
+ */
 void loop()
 {
     WiFiClient client = tcpServer.available();
