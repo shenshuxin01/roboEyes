@@ -4,7 +4,9 @@
 #include <WiFiUdp.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <cstdint>
 
+#define DEBUG
 
 class St7789Esp {
 private:
@@ -181,7 +183,7 @@ void St7789Esp::processPacket(uint8_t* data, int len)
 
     if (x >= 240 || y >= 240)
         return;
-#ifndef DEBUG
+#ifdef DEBUG
     Serial.print("udp_receive x: ");
     Serial.print(x);
     Serial.print(" y: ");

@@ -1,13 +1,14 @@
 //
 // Created by Shen Shuxin on 2026/6/11.
 //
+#include <Arduino.h>
 #include <cstdint>
 #include <string>
 #include <cmath>
 #include <atomic>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
+//#define DEBUG
 const int VRx = 35;
 const int VRy = 34;
 const int SW  = 39;
@@ -107,7 +108,7 @@ public:
         field.x=x;
         field.y=y;
         field.sw= sw==0;
-#ifndef DEBUG
+#ifdef DEBUG
         Serial.print("X:");
         Serial.print(x);
 
