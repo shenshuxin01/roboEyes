@@ -1,29 +1,51 @@
 #include <TFT_eSPI.h>
 #include <LittleFS.h>
-#include <WiFi.h>
+
 #include <WiFiUdp.h>
-#include <esp_wifi.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
-TFT_eSPI tft = TFT_eSPI();
 
-WiFiUDP udp;
+class St7789Esp {
+private:
+    TFT_eSPI tft;
+    WiFiUDP udp;
 
-constexpr uint16_t UDP_PORT = 9998;
+    static constexpr uint16_t UDP_PORT = 9998;
 
-static uint8_t udpBuffer[1500];
+    uint8_t udpBuffer[1500]{};
+    bool isScreenDimmed = false;
+    unsigned long lastPacketTime = 0;
 
-bool isScreenDimmed = false;
-unsigned long lastPacketTime = 0;
+    TaskHandle_t loopTaskHandle = nullptr;
 
-const char* WIFI_SSID = "YOUR_WIFI_SSID";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+    static void loopTaskEntry(void *param)
+    {
+        auto *self = static_cast<St7789Esp *>(param);
 
-IPAddress local_IP(192, 168, 0, 108);
-IPAddress gateway(192, 168, 0, 1);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(192, 168, 0, 1);
+        while (true)
+        {
+            self->loop();
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+    }
 
-void lcdInit()
+public:
+    St7789Esp() = default;
+
+    void lcdInit();
+    void showRGB565(const char* path);
+    void updateRegionFast(int x, int y, int w, int h, uint16_t* data);
+    void setScreenBrightness(uint8_t value);
+    void screenSleep();
+    void screenWakeup();
+    void processPacket(uint8_t* data, int len);
+    void starting_play();
+    void setup();
+    void loop();
+};
+
+void St7789Esp::lcdInit()
 {
     pinMode(TFT_BL, OUTPUT);
     digitalWrite(TFT_BL, HIGH);
@@ -44,7 +66,7 @@ void lcdInit()
 
 #define BLOCK_LINES 32
 
-void showRGB565(const char* path)
+void St7789Esp::showRGB565(const char* path)
 {
     File file = LittleFS.open(path);
 
@@ -96,7 +118,7 @@ void showRGB565(const char* path)
 }
 
 
-void updateRegionFast(
+void St7789Esp::updateRegionFast(
         int x,
         int y,
         int w,
@@ -122,23 +144,23 @@ void updateRegionFast(
 }
 
 
-void setScreenBrightness(uint8_t value)
+void St7789Esp::setScreenBrightness(uint8_t value)
 {
     analogWrite(TFT_BL, value);
 }
 
-void screenSleep()
+void St7789Esp::screenSleep()
 {
     tft.writecommand(0x10);
 }
 
-void screenWakeup()
+void St7789Esp::screenWakeup()
 {
     tft.writecommand(0x11);
     delay(120);
 }
 
-void processPacket(uint8_t* data, int len)
+void St7789Esp::processPacket(uint8_t* data, int len)
 {
     if (len == 4 && memcmp(data, "zzzz", 4) == 0)
     {
@@ -159,6 +181,7 @@ void processPacket(uint8_t* data, int len)
 
     if (x >= 240 || y >= 240)
         return;
+#ifndef DEBUG
     Serial.print("udp_receive x: ");
     Serial.print(x);
     Serial.print(" y: ");
@@ -169,6 +192,7 @@ void processPacket(uint8_t* data, int len)
     Serial.print(h);
     Serial.print(" package_len: ");
     Serial.println(len);
+#endif
 
     tft.startWrite();
     tft.setAddrWindow(x, y, w, h);
@@ -176,7 +200,7 @@ void processPacket(uint8_t* data, int len)
     tft.endWrite();
 }
 
-void starting_play()
+void St7789Esp::starting_play()
 {
     setScreenBrightness(255);
 
@@ -257,36 +281,10 @@ void starting_play()
 
 
 
-void setup()
+void St7789Esp::setup()
 {
-    Serial.begin(115200);
-    Serial.println();
-    Serial.println("===== start esp32 =====");
 
     lcdInit();
-
-    if (!WiFi.config(
-            local_IP,
-            gateway,
-            subnet,
-            primaryDNS))
-    {
-        Serial.println("STA Failed to configure");
-    }
-    WiFi.setSleep(false);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    Serial.print("WiFi connecting");
-
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(500);
-        Serial.print(".");
-    }
-
-    esp_wifi_set_ps(WIFI_PS_NONE);
-    Serial.println();
-    Serial.println(WiFi.localIP());
 
     starting_play();
 
@@ -296,10 +294,20 @@ void setup()
 
     lastPacketTime = millis();
 
+    xTaskCreatePinnedToCore(
+            loopTaskEntry,
+            "st7789_loop",
+            4096,
+            this,
+            1,
+            &loopTaskHandle,
+            1
+    );
+
     Serial.println("st7789 UDP listen 9998");
 }
 
-void loop()
+void St7789Esp::loop()
 {
     int packetSize = udp.parsePacket();
 
@@ -345,3 +353,14 @@ void loop()
     }
 }
 
+//static St7789Esp app;
+//
+//void setup()
+//{
+//    app.setup();
+//}
+//
+//void loop()
+//{
+//    vTaskDelay(pdMS_TO_TICKS(1000));
+//}
