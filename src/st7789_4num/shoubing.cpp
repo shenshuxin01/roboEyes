@@ -80,7 +80,7 @@ private:
             currentDirection.store(dir);
             currentPressed.store(field.sw);
 
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            vTaskDelay(pdMS_TO_TICKS(200));
         }
     }
 public:
