@@ -63,6 +63,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(resp["success"])
 
     # 测试获取摇杆方向
+    #     RIGHT=1,LEFT=2,BOTTOM=3,TOP=4,DOWN=5,NONE=0
     def test_get_direction(self):
         for _ in range(20):
             time.sleep(1)
