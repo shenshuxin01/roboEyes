@@ -115,7 +115,7 @@ private:
                 }
             } else {
                 clear();
-                vTaskDelay(pdMS_TO_TICKS(50));
+                vTaskDelay(pdMS_TO_TICKS(1000));
             }
         }
     }
