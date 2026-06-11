@@ -35,7 +35,7 @@ const int SW  = 39;
 struct Field {
     int x;
     int y;
-    bool sw;
+    int sw;
 };
 enum Direction {
     RIGHT=1,LEFT=2,BOTTOM=3,TOP=4,DOWN=5,NONE=0
@@ -64,16 +64,14 @@ private:
             Direction dir = NONE;
 
             if (field.x <= shouBingMin && std::abs(defMidY - field.y) < delta) {
-                dir = LEFT;
+                dir =  TOP;//上
             } else if (field.x >= shouBingMax && std::abs(defMidY - field.y) < delta) {
-                dir = RIGHT;
+                dir =  BOTTOM;//下
             } else if (field.y <= shouBingMin && std::abs(defMidX - field.x) < delta) {
-                dir = TOP;
+                dir = RIGHT;//右边
             } else if (field.y >= shouBingMax && std::abs(defMidX - field.x) < delta) {
-                dir = BOTTOM;
-            } else if (std::abs(defMidX - field.x) < delta &&
-                       std::abs(defMidY - field.y) < delta &&
-                       field.sw) {
+                dir = LEFT;//左边
+            } else if (field.sw) {
                 dir = DOWN;
             }
 
@@ -107,7 +105,7 @@ public:
         Field field{};
         field.x=x;
         field.y=y;
-        field.sw= sw==0;
+        field.sw= sw;
 #ifdef DEBUG
         Serial.print("X:");
         Serial.print(x);

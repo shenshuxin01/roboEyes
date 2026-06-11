@@ -167,6 +167,7 @@ void loop()
         else if (cmd == "screenWakeup")
         {
             app.screenWakeup();
+            app.setScreenBrightness(255);
             resp["success"] = true;
         }
         else if (cmd == "screenSleep")
