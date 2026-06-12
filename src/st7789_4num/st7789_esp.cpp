@@ -29,7 +29,7 @@ private:
         {
             self->loop();
             vTaskDelay(pdMS_TO_TICKS(10));
-            if (isScreenDimmed)
+            if (self->isScreenDimmed)
             {
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
