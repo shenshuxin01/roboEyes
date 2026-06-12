@@ -313,6 +313,20 @@ void St7789Esp::setup()
     Serial.println("st7789 UDP listen 9998");
 }
 
+static void setWifiLowMode(bool setLowFlag)
+{
+    WiFi.setSleep(setLowFlag);
+    if (setLowFlag)
+    {
+        esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+    }
+    else
+    {
+        esp_wifi_set_ps(WIFI_PS_NONE);
+    }
+
+}
+
 void St7789Esp::loop()
 {
     int packetSize = udp.parsePacket();
@@ -329,7 +343,8 @@ void St7789Esp::loop()
             setScreenBrightness(255);
             screenWakeup();
             isScreenDimmed = false;
-关闭Wi-Fi省电模式
+            setWifiLowMode(false);
+            //关闭Wi-Fi省电模式
         }
 
         processPacket(
@@ -355,7 +370,8 @@ void St7789Esp::loop()
         {
             setScreenBrightness(0);
             screenSleep();
-设置Wi-Fi超级省电模式 max 避免esp32发热
+            setWifiLowMode(true);
+            //设置Wi-Fi超级省电模式 max 避免esp32发热
         }
 
         lastPacketTime = millis();
