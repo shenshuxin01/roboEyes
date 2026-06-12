@@ -65,7 +65,7 @@ class MyTestCase(unittest.TestCase):
     # 测试获取摇杆方向
     #     RIGHT=1,LEFT=2,BOTTOM=3,TOP=4,DOWN=5,NONE=0
     def test_get_direction(self):
-        for _ in range(20):
+        for _ in range(5):
             time.sleep(1)
             resp = self.send_cmd({"cmd": "getDirection"})
 

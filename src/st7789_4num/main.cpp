@@ -173,6 +173,7 @@ void loop()
         else if (cmd == "screenSleep")
         {
             app.screenSleep();
+            app.setScreenBrightness(0);
             resp["success"] = true;
         }
         else if (cmd == "getDirection")
