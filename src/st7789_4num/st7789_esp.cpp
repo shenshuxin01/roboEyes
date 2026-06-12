@@ -28,7 +28,11 @@ private:
         while (true)
         {
             self->loop();
-            vTaskDelay(pdMS_TO_TICKS(1));
+            vTaskDelay(pdMS_TO_TICKS(10));
+            if (isScreenDimmed)
+            {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
         }
     }
 
@@ -325,6 +329,7 @@ void St7789Esp::loop()
             setScreenBrightness(255);
             screenWakeup();
             isScreenDimmed = false;
+关闭Wi-Fi省电模式
         }
 
         processPacket(
@@ -335,6 +340,7 @@ void St7789Esp::loop()
         lastPacketTime = millis();
         return;
     }
+
 
     unsigned long idleMs = millis() - lastPacketTime;
 
@@ -349,6 +355,7 @@ void St7789Esp::loop()
         {
             setScreenBrightness(0);
             screenSleep();
+设置Wi-Fi超级省电模式 max 避免esp32发热
         }
 
         lastPacketTime = millis();
