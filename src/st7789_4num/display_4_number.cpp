@@ -43,6 +43,7 @@ private:
     std::atomic<int> currentNumber{0};
     std::atomic<int> currentDotPos{-1};
     std::atomic<bool> clockMode{false};
+    int lastMinute = -1;
     // Removed:
     // uint32_t baseMillis = 0;
     // int baseHour = 0;
@@ -96,6 +97,62 @@ private:
         }
     }
 
+    void displaySinglePosition(int position, int digit, int dot = -1) {
+        if (position < 0 || position > 3) {
+            return;
+        }
+
+        clear();
+
+        digitalWrite(seg_array[position], LOW);
+
+        for (int j = 0; j < 8; j++) {
+            digitalWrite(led_array[j], logic_array[digit % 10][j]);
+        }
+
+        if (position == dot) {
+            digitalWrite(dp, HIGH);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+
+    void minuteChangeAnimation(int hh, int mm) {
+        int digits[4] = {hh / 10, hh % 10, mm / 10, mm % 10};
+
+        // 从左往右滚动两次
+        for (int round = 0; round < 6; round++) {
+
+            // 已显示的位数：1→2→3→4
+            for (int visibleCount = 1; visibleCount <= 4; visibleCount++) {
+
+                // 保持当前动画帧一段时间
+                for (int repeat = 0; repeat < 60; repeat++) {
+
+                    for (int pos = 0; pos < visibleCount; pos++) {
+                        clear();
+
+                        digitalWrite(seg_array[pos], LOW);
+
+                        for (int j = 0; j < 8; j++) {
+                            digitalWrite(
+                                    led_array[j],
+                                    logic_array[digits[pos]][j]
+                            );
+                        }
+
+                        // 冒号（第二位后的小数点）
+                        if (pos == 1) {
+                            digitalWrite(dp, HIGH);
+                        }
+
+                        vTaskDelay(pdMS_TO_TICKS(5));
+                    }
+                }
+            }
+        }
+    }
+
     void refreshLoop() {
         while (true) {
             if (enabled.load()) {
@@ -105,6 +162,11 @@ private:
                     if (getLocalTime(&timeinfo, 100)) {
                         int hh = timeinfo.tm_hour;
                         int mm = timeinfo.tm_min;
+
+                        if (lastMinute != -1 && lastMinute != mm) {
+                            minuteChangeAnimation(hh, mm);
+                        }
+                        lastMinute = mm;
 
                         displayOnce(hh * 100 + mm, 1);
                     } else {
