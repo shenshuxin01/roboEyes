@@ -66,7 +66,7 @@ private:
         }
     }
 
-    void displayOnce(int number, int dotPos) {
+    void displayOnce(int number, int dotPos, bool leading=true) {
         if (number < 0) {
             number = 0;
         }
@@ -82,7 +82,7 @@ private:
         }
 
         // 前导0不显示，但保留最后一位0
-        bool leading = true;
+//        bool leading = true;
         for (int i = 0; i < 3; i++) {
             if (leading && number_array[i] == 0) {
                 blank_array[i] = true;
@@ -185,7 +185,7 @@ private:
                         }
                         lastMinute = mm;
 
-                        displayOnce(hh * 100 + mm, 1);
+                        displayOnce(hh * 100 + mm, 1, false);
                     } else {
                         displayOnce(0, 1);
                     }
