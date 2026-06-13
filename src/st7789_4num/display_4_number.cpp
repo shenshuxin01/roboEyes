@@ -74,14 +74,30 @@ private:
         number %= 10000;
 
         int number_array[4];
+        bool blank_array[4] = {false, false, false, false};
 
         for (int i = 3; i >= 0; i--) {
             number_array[i] = number % 10;
             number /= 10;
         }
 
+        // 前导0不显示，但保留最后一位0
+        bool leading = true;
+        for (int i = 0; i < 3; i++) {
+            if (leading && number_array[i] == 0) {
+                blank_array[i] = true;
+            } else {
+                leading = false;
+            }
+        }
+
         for (int i = 0; i < 4; i++) {
             clear();
+
+            if (blank_array[i]) {
+                vTaskDelay(pdMS_TO_TICKS(2));
+                continue;
+            }
 
             digitalWrite(seg_array[i], LOW);
 
@@ -125,28 +141,29 @@ private:
 
             // 已显示的位数：1→2→3→4
             for (int visibleCount = 1; visibleCount <= 4; visibleCount++) {
+                if (clockMode.load()) {
+                    // 保持当前动画帧一段时间
+                    for (int repeat = 0; repeat < 60; repeat++) {
 
-                // 保持当前动画帧一段时间
-                for (int repeat = 0; repeat < 60; repeat++) {
+                        for (int pos = 0; pos < visibleCount; pos++) {
+                            clear();
 
-                    for (int pos = 0; pos < visibleCount; pos++) {
-                        clear();
+                            digitalWrite(seg_array[pos], LOW);
 
-                        digitalWrite(seg_array[pos], LOW);
+                            for (int j = 0; j < 8; j++) {
+                                digitalWrite(
+                                        led_array[j],
+                                        logic_array[digits[pos]][j]
+                                );
+                            }
 
-                        for (int j = 0; j < 8; j++) {
-                            digitalWrite(
-                                    led_array[j],
-                                    logic_array[digits[pos]][j]
-                            );
+                            // 冒号（第二位后的小数点）
+                            if (pos == 1) {
+                                digitalWrite(dp, HIGH);
+                            }
+
+                            vTaskDelay(pdMS_TO_TICKS(5));
                         }
-
-                        // 冒号（第二位后的小数点）
-                        if (pos == 1) {
-                            digitalWrite(dp, HIGH);
-                        }
-
-                        vTaskDelay(pdMS_TO_TICKS(5));
                     }
                 }
             }

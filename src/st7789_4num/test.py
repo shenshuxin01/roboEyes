@@ -42,8 +42,8 @@ class MyTestCase(unittest.TestCase):
     def test_set_number(self):
         resp = self.send_cmd({
             "cmd": "setNumber",
-            "value": 1234,
-            "dotPos": 3
+            "value": 50,
+            "dotPos": 0
         })
         self.assertTrue(resp["success"])
 
