@@ -121,7 +121,7 @@ private:
         int digits[4] = {hh / 10, hh % 10, mm / 10, mm % 10};
 
         // 从左往右滚动两次
-        for (int round = 0; round < 6; round++) {
+        for (int round = 0; round < 3; round++) {
 
             // 已显示的位数：1→2→3→4
             for (int visibleCount = 1; visibleCount <= 4; visibleCount++) {

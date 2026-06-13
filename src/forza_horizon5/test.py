@@ -51,7 +51,7 @@ class MyTestCase(unittest.TestCase):
 
             payload = "120,8,2," + ";".join(effect)
             self.send_cmd(payload)
-            time.sleep(0.15)
+            time.sleep(5)
 
 
 
