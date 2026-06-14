@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <atomic>
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 // UDP监听端口，需要与ESP32保持一致
 constexpr int UDP_PORT = 5556;
@@ -31,7 +33,11 @@ constexpr const char *MEDIA_PLAYER = "media_player.xiaomi_lx06_62d6_play_control
 int cachedVolume = -1;
 time_t cachedVolumeTime = 0;
 
+
 std::atomic<uint64_t> volumeDisplayVersion{0};
+std::mutex latestMsgMutex;
+std::condition_variable latestMsgCv;
+std::string latestMsg;
 
 #define LOG_INFO(msg) std::cout << "[INFO] " << msg << std::endl
 #define LOG_ERROR(msg) std::cerr << "[ERROR] " << msg << " errno=" << errno << " (" << strerror(errno) << ")" << std::endl
@@ -339,56 +345,55 @@ int main() {
 
     LOG_INFO("UDP服务启动，监听端口: " << UDP_PORT);
 
-    char buffer[1024];
+    std::thread receiverThread([sockfd]() {
+        char buffer[128];
 
-    while (true) {
-        sockaddr_in clientAddr{};
-        socklen_t len = sizeof(clientAddr);
-
-        ssize_t n = recvfrom(sockfd,
-                             buffer,
-                             sizeof(buffer) - 1,
-                             0,
-                             reinterpret_cast<sockaddr *>(&clientAddr),
-                             &len);
-
-        if (n <= 0) {
-            continue;
-        }
-
-        buffer[n] = '\0';
-
-        // 丢弃积压的UDP数据，只保留最新的一条指令
         while (true) {
-            fd_set readfds;
-            FD_ZERO(&readfds);
-            FD_SET(sockfd, &readfds);
+            sockaddr_in clientAddr{};
+            socklen_t len = sizeof(clientAddr);
 
-            timeval tv{};
-            tv.tv_sec = 0;
-            tv.tv_usec = 0;
-
-            int ret = select(sockfd + 1, &readfds, nullptr, nullptr, &tv);
-            if (ret <= 0) {
-                break;
-            }
-
-            n = recvfrom(sockfd,
-                         buffer,
-                         sizeof(buffer) - 1,
-                         0,
-                         reinterpret_cast<sockaddr *>(&clientAddr),
-                         &len);
+            ssize_t n = recvfrom(sockfd,
+                                 buffer,
+                                 sizeof(buffer) - 1,
+                                 0,
+                                 reinterpret_cast<sockaddr *>(&clientAddr),
+                                 &len);
 
             if (n <= 0) {
-                break;
+                continue;
             }
 
             buffer[n] = '\0';
-        }
 
-        handleCommand(buffer);
-    }
+            {
+                std::unique_lock<std::mutex> lock(latestMsgMutex, std::try_to_lock);
+                if (!lock.owns_lock()) {
+                    continue;
+                }
+
+                latestMsg.assign(buffer);
+            }
+            latestMsgCv.notify_one();
+        }
+    });
+
+    std::thread consumerThread([]() {
+        while (true) {
+            std::string msg;
+
+            {
+                std::unique_lock<std::mutex> lock(latestMsgMutex);
+                latestMsgCv.wait(lock, [] {
+                    return !latestMsg.empty();
+                });
+                msg.swap(latestMsg);   // 取走并清空
+                handleCommand(msg);
+            }
+        }
+    });
+
+    receiverThread.join();
+    consumerThread.join();
 
     close(sockfd);
     return 0;
